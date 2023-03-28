@@ -43,12 +43,12 @@ int weaponIcon(int rank) {
         case 6:
             return G_ImageIndex("gfx/hud/icons/weapon/machinegun");
         case 7:
-            return G_ImageIndex("gfx/hud/icons/weapon/gunblade");
+            return G_ImageIndex("gfx/hud/icons/weapon/gunblade_blast");
         case 8:
             return G_ImageIndex("gfx/hud/icons/weapon/instagun");
     }
     
-    return G_ImageIndex("gfx/hud/icons/powerup/quad");
+    return G_ImageIndex("gfx/hud/icons/weapon/nogun_cross");
 }
 
 // a player has just died. The script is warned about it so it can account scores
@@ -156,7 +156,11 @@ String @GT_ScoreboardMessage(uint maxlen) {
         @ent = @team.ent(i);
 
         readyIcon = ent.client.isReady() ? prcYesIcon : 0;
-        weaponImage = weaponIcon(currentWeapon[ent.playerNum]);
+        if (!ent.isGhosting()) {
+            weaponImage = currentWeapon[ent.playerNum] > 0 ? weaponIcon(currentWeapon[ent.playerNum]) : weaponIcon(0);
+        } else {
+            weaponImage = weaponIcon(-1);
+        }
 
         int playerID = (ent.isGhosting() && (match.getState() == MATCH_STATE_PLAYTIME)) ? -(ent.playerNum + 1) : ent.playerNum;
 
