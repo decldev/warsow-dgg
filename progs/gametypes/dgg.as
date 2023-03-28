@@ -1,85 +1,8 @@
-/*
-Copyright (C) 2009-2010 Chasseur de bots
+int prcYesIcon;
+int[] currentWeapon(maxClients);
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-*/
-
-///*****************************************************************
-/// NEW MAP ENTITY DEFINITIONS
-///*****************************************************************
-
-
-///*****************************************************************
-/// LOCAL FUNCTIONS
-///*****************************************************************
-
-int iconInstagun;
-int iconElectro;
-int iconGrenade;
-int iconRocket;
-int iconPlasma;
-int iconLaser;
-int iconMachinegun;
-int iconRiot;
-int iconGunblade;
-int iconMax;
-
-Weapons() {
-    iconInstagun = G_ImageIndex("gfx/hud/icons/weapon/instagun");
-    iconElectro = G_ImageIndex("gfx/hud/icons/weapon/electro");
-    iconGrenade = G_ImageIndex("gfx/hud/icons/weapon/grenade");
-    iconRocket = G_ImageIndex("gfx/hud/icons/weapon/rocket");
-    iconPlasma = G_ImageIndex("gfx/hud/icons/weapon/plasma");
-    iconLaser = G_ImageIndex("gfx/hud/icons/weapon/laser");
-    iconMachinegun = G_ImageIndex("gfx/hud/icons/weapon/machinegun");
-    iconRiot = G_ImageIndex("gfx/hud/icons/weapon/riot");
-    iconGunblade = G_ImageIndex("gfx/hud/icons/weapon/gunblade");
-    iconMax = G_ImageIndex("gfx/hud/icons/powerup/quad");
-}
-
-int icon(int weapon) {
-    switch (weapon) {
-        case WEAP_NONE:
-            return gametype.get_isInstagib() ? iconInstagun : iconGunblade;
-        case WEAP_INSTAGUN:
-            return iconInstagun;
-        case WEAP_GUNBLADE:
-            return iconGunblade;
-        case WEAP_ELECTROBOLT:
-            return iconElectro;
-        case WEAP_GRENADELAUNCHER:
-            return iconGrenade;
-        case WEAP_ROCKETLAUNCHER:
-            return iconRocket;
-        case WEAP_PLASMAGUN:
-            return iconPlasma;
-        case WEAP_LASERGUN:
-            return iconLaser;
-        case WEAP_MACHINEGUN:
-            return iconMachinegun;
-        case WEAP_RIOTGUN:
-            return iconRiot;
-        case WEAP_TOTAL:
-            return iconMax;
-    }
-    return 0;
-}
-
-int award(int frags) {
-    switch (frags) {
+int weapon(int rank) {
+    switch (rank) {
         case 0:
             return WEAP_ELECTROBOLT;
         case 1:
@@ -103,6 +26,31 @@ int award(int frags) {
     return WEAP_NONE;
 }
 
+int weaponIcon(int rank) {
+    switch (rank) {
+        case 0:
+            return G_ImageIndex("gfx/hud/icons/weapon/electro");
+        case 1:
+            return G_ImageIndex("gfx/hud/icons/weapon/rocket");
+        case 2:
+            return G_ImageIndex("gfx/hud/icons/weapon/laser");
+        case 3:
+            return G_ImageIndex("gfx/hud/icons/weapon/plasma");
+        case 4:
+            return G_ImageIndex("gfx/hud/icons/weapon/grenade");
+        case 5:
+            return G_ImageIndex("gfx/hud/icons/weapon/riot");
+        case 6:
+            return G_ImageIndex("gfx/hud/icons/weapon/machinegun");
+        case 7:
+            return G_ImageIndex("gfx/hud/icons/weapon/gunblade");
+        case 8:
+            return G_ImageIndex("gfx/hud/icons/weapon/instagun");
+    }
+    
+    return G_ImageIndex("gfx/hud/icons/powerup/quad");
+}
+
 // a player has just died. The script is warned about it so it can account scores
 void DM_playerKilled( Entity @target, Entity @attacker, Entity @inflictor )
 {
@@ -112,79 +60,40 @@ void DM_playerKilled( Entity @target, Entity @attacker, Entity @inflictor )
     if ( @target.client == null )
         return;
 
-    // update player score based on player stats
-    target.client.stats.setScore( target.client.stats.score - 2 ); // Drop two weapon ranks as penalty
-    if ( target.client.stats.score < 1 ) {
-        target.client.stats.setScore( 0 );
-    }
+    // Update player weapons
+    if ( currentWeapon[target.playerNum] > 0 ) currentWeapon[target.playerNum]--; // Drop one weapon rank as a penalty
+    
     if ( @attacker != null && @attacker.client != null ) {
-        attacker.client.stats.setScore( attacker.client.stats.score + 1 );
-
-        // should be a function
         if ( attacker.client.getEnt().isGhosting() == false ) {
             attacker.client.inventoryClear();
-            attacker.client.inventoryGiveItem( award( attacker.client.stats.score ) );
-            attacker.client.selectWeapon( award( attacker.client.stats.score ) );
+            if (currentWeapon[attacker.playerNum] < 8) {
+                currentWeapon[attacker.playerNum]++; // Gain one weapon rank as a reward
+                attacker.client.inventoryGiveItem(weapon(currentWeapon[attacker.playerNum]));
+                attacker.client.selectWeapon(weapon(currentWeapon[attacker.playerNum]));
+            } else {
+                // Kill with last weapon is +1 score
+                attacker.client.stats.setScore(attacker.client.stats.score + 1);
+
+                // Reset to first weapon
+                currentWeapon[attacker.playerNum] = 0;
+                attacker.client.inventoryGiveItem(weapon(0));
+                attacker.client.selectWeapon(weapon(0));
+            }
+            
             attacker.client.inventorySetCount( AMMO_GUNBLADE, 1 ); // enable gunblade blast
-            attacker.health = attacker.health + 10;
-            attacker.client.armor = attacker.client.armor + 8;
-        }
-    }
 
-    // drop items
-    if ( ( G_PointContents( target.origin ) & CONTENTS_NODROP ) == 0 )
-    {
-        target.dropItem( AMMO_PACK );
-
-        if ( target.client.inventoryCount( POWERUP_QUAD ) > 0 )
-        {
-            target.dropItem( POWERUP_QUAD );
-            target.client.inventorySetCount( POWERUP_QUAD, 0 );
-        }
-
-        if ( target.client.inventoryCount( POWERUP_SHELL ) > 0 )
-        {
-            target.dropItem( POWERUP_SHELL );
-            target.client.inventorySetCount( POWERUP_SHELL, 0 );
+            // These should get their values from cvars
+            attacker.health = attacker.health + 15;
+            attacker.client.armor = attacker.client.armor + 10;
         }
     }
     
-    award_playerKilled( @target, @attacker,@inflictor );
+    award_playerKilled(@target, @attacker, @inflictor);
 }
-
-///*****************************************************************
-/// MODULE SCRIPT CALLS
-///*****************************************************************
 
 bool GT_Command( Client @client, const String &cmdString, const String &argsString, int argc )
 {
-    if ( cmdString == "drop" )
-    {
-        String token;
-
-        for ( int i = 0; i < argc; i++ )
-        {
-            token = argsString.getToken( i );
-            if ( token.len() == 0 )
-                break;
-
-            if ( token == "weapon" || token == "fullweapon" )
-            {
-                GENERIC_DropCurrentWeapon( client, true );
-            }
-            else if ( token == "strong" )
-            {
-                GENERIC_DropCurrentAmmoStrong( client );
-            }
-            else
-            {
-                GENERIC_CommandDropItem( client, token );
-            }
-        }
-
-        return true;
-    }
-    else if ( cmdString == "cvarinfo" )
+    if ( cmdString == "cvarinfo" )
     {
         GENERIC_CheatVarResponse( client, cmdString, argsString, argc );
         return true;
@@ -227,38 +136,46 @@ Entity @GT_SelectSpawnPoint( Entity @self )
     return GENERIC_SelectBestRandomSpawnPoint( self, "info_player_deathmatch" );
 }
 
-String @GT_ScoreboardMessage( uint maxlen )
-{
-    String scoreboardMessage = "";
-    String entry;
-    Team @team;
-    Entity @ent;
-    int i;
+String @GT_ScoreboardMessage(uint maxlen) {
+	String scoreboardMessage = "";
+	String entry;
+	Team @team;
+	Entity @ent;
+	int i, weaponImage, readyIcon;
 
     @team = @G_GetTeam( TEAM_PLAYERS );
 
     // &t = team tab, team tag, team score (doesn't apply), team ping (doesn't apply)
     entry = "&t " + int( TEAM_PLAYERS ) + " " + team.stats.score + " 0 ";
-    if ( scoreboardMessage.len() + entry.len() < maxlen )
+
+    if(scoreboardMessage.len() + entry.len() < maxlen) {
         scoreboardMessage += entry;
-
-    for ( i = 0; @team.ent( i ) != null; i++ )
-    {
-        @ent = @team.ent( i );
-
-		int playerID = ( ent.isGhosting() && ( match.getState() == MATCH_STATE_PLAYTIME ) ) ? -( ent.playerNum + 1 ) : ent.playerNum;
-
-        entry = "&p " + playerID + " "
-                + ent.client.clanName + " "
-                + ent.client.stats.score + " "
-                + ent.client.ping + " "
-                + ( ent.client.isReady() ? "1" : "0" ) + " ";
-
-        if ( scoreboardMessage.len() + entry.len() < maxlen )
-            scoreboardMessage += entry;
     }
 
-    return scoreboardMessage;
+    for(i = 0; @team.ent(i) != null; i++) {
+        @ent = @team.ent(i);
+
+        readyIcon = ent.client.isReady() ? prcYesIcon : 0;
+        weaponImage = weaponIcon(currentWeapon[ent.playerNum]);
+
+        int playerID = (ent.isGhosting() && (match.getState() == MATCH_STATE_PLAYTIME)) ? -(ent.playerNum + 1) : ent.playerNum;
+
+        // "Name Clan Score Frags Ping W R"
+        entry = "&p " + playerID + " "
+            + ent.client.clanName + " "
+            + ent.client.stats.score + " "
+            + ent.client.stats.frags + " "
+            + ent.client.ping + " "
+            + weaponImage + " "
+            + readyIcon + " ";
+    
+
+        if(scoreboardMessage.len() + entry.len() < maxlen) {
+            scoreboardMessage += entry;
+        }
+    }
+
+	return scoreboardMessage;
 }
 
 // Some game actions trigger score events. These are events not related to killing
@@ -294,23 +211,17 @@ void GT_PlayerRespawn( Entity @ent, int old_team, int new_team )
     if ( ent.isGhosting() )
         return;
 
-    if ( gametype.isInstagib ) {
-        ent.client.inventoryGiveItem( WEAP_INSTAGUN );
-        ent.client.inventorySetCount( AMMO_INSTAS, 1 );
-        ent.client.inventorySetCount( AMMO_WEAK_INSTAS, 1 );
-    } else {
-        Item @item;
-        Item @ammoItem;
+    Item @item;
+    Item @ammoItem;
 
-        // Give correct weapon according to kill row
-        ent.client.inventoryClear();
-        ent.client.inventorySetCount( AMMO_GUNBLADE, 1 ); // enable gunblade blast
-        ent.client.inventoryGiveItem( award( ent.client.stats.score ) );
-        ent.client.selectWeapon( award( ent.client.stats.score ) );
+    // Give correct weapon according to kill row
+    ent.client.inventoryClear();
+    ent.client.inventorySetCount( AMMO_GUNBLADE, 1 ); // enable gunblade blast
+    ent.client.inventoryGiveItem(weapon(currentWeapon[ent.playerNum]));
+    ent.client.selectWeapon(weapon(currentWeapon[ent.playerNum]));
 
-		ent.health = 20;
-        ent.client.armor = 50;
-    }
+    ent.health = 20;
+    ent.client.armor = 50;
 
     // add a teleportation effect
     ent.respawnEffect();
@@ -416,7 +327,7 @@ void GT_SpawnGametype()
 void GT_InitGametype()
 {
     gametype.title = "Gungame";
-    gametype.version = "1.02";
+    gametype.version = "2.0";
     gametype.author = "decldev";
 
     // if the gametype doesn't have a config file, create it
@@ -431,8 +342,8 @@ void GT_InitGametype()
                  + "set g_maplist \"wdm1 wdm2 wdm4 wdm5 wdm6 wdm7 wdm9 wdm10 wdm11 wdm12 wdm13 wdm14 wdm15 wdm16 wdm17\" // list of maps in automatic rotation\n"
                  + "set g_maprotation \"1\"   // 0 = same map, 1 = in order, 2 = random\n"
                  + "\n// game settings\n"
-                 + "set g_scorelimit \"9\" // Do not change! Map is supposed to end after 9 weapons\n"
-                 + "set g_timelimit \"0\"\n"
+                 + "set g_scorelimit \"0\" // Scores are only gained with last weapon kills\n"
+                 + "set g_timelimit \"10\"\n"
                  + "set g_warmup_timelimit \"1\"\n"
                  + "set g_match_extendedtime \"0\"\n"
                  + "set g_allow_falldamage \"1\"\n"
@@ -482,18 +393,24 @@ void GT_InitGametype()
 
 	gametype.mmCompatible = false;
 	
-    gametype.spawnpointRadius = 512;
+    gametype.spawnpointRadius = 256;
+
+    if ( gametype.isInstagib )
+        gametype.spawnpointRadius *= 2;
+
+    // precache images that can be used by the scoreboard
+	prcYesIcon = G_ImageIndex("gfx/hud/icons/vsay/yes");
 
     // set spawnsystem type
     for ( int team = TEAM_PLAYERS; team < GS_MAX_TEAMS; team++ )
-        gametype.setTeamSpawnsystem( team, SPAWNSYSTEM_INSTANT, 0, 0, false );
+        gametype.setTeamSpawnsystem(team, SPAWNSYSTEM_INSTANT, 0, 0, false);
 
     // define the scoreboard layout
-    G_ConfigString( CS_SCB_PLAYERTAB_LAYOUT, "%n 112 %s 52 %i 52 %l 48 %r l1" );
-    G_ConfigString( CS_SCB_PLAYERTAB_TITLES, "Name Clan Frags Row Weap Best Ping R" );
+    G_ConfigString(CS_SCB_PLAYERTAB_LAYOUT, "%n 112 %s 52 %i 52 %i 52 %l 48 %p l1 %r l1");
+    G_ConfigString(CS_SCB_PLAYERTAB_TITLES, "Name Clan Score Frags Ping W R");
 
     // add commands
-    G_RegisterCommand( "gametype" );
+    G_RegisterCommand("gametype");
 
-    G_Print( "Gametype '" + gametype.title + "' initialized\n" );
+    G_Print("Gametype '" + gametype.title + "' initialized\n");
 }
